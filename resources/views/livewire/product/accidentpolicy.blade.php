@@ -28,10 +28,15 @@
           		@svg('calendar', 'icon icon-plus w-6 h-6 text-black')
         	</div>
         	<input id="start_date" x-ref="datepicker1"
-        		x-init="flatpickr($refs.datepicker1, {
-            	enableTime: false,
-            	dateFormat: 'd-m-Y'
-        		})" wire:model="start_date" datepicker datepicker-orientation="bottom right" type="text" class="block text-xs lg:text-sm font-medium appearance-none border border-pale-blue-gray rounded-md w-full p-2.5 lg:p-3 text-black focus:outline-none focus:shadow-outline focus:border-oxford-blue focus:ring-oxford-blue placeholder:text-cool-gray pe-10" placeholder="{{ __('Start Date') }}">
+        		x-init="
+                flatpickr($refs.datepicker1, {
+                    dateFormat: 'd-m-Y',
+                    allowInput: true,
+                    onChange: function(selectedDates, dateStr) {
+                        @this.set('start_date', dateStr)
+                    }
+                })
+            " wire:model="start_date" type="text" class="block text-xs lg:text-sm font-medium appearance-none border border-pale-blue-gray rounded-md w-full p-2.5 lg:p-3 text-black focus:outline-none focus:shadow-outline focus:border-oxford-blue focus:ring-oxford-blue placeholder:text-cool-gray pe-10" placeholder="{{ __('Start Date') }}">
 				@error('start_date') <span class="text-red-500 block text-xs lg:text-sm mt-1">{{ $message }}</span>@enderror
       	</div>
   	</div>

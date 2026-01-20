@@ -23,7 +23,7 @@ class FileUpload extends Component
 
     protected $rules = [
         'title' => 'required|string|max:255',
-        'file' => 'required|file|max:10240', // Max 2MB
+        'file' => 'required|file|max:51200', // Max 50MB
         'client_id' => 'nullable|exists:clients,id',
     ];
 

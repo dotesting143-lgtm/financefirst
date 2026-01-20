@@ -190,15 +190,24 @@ class ProductNotes extends Component
         $role = auth()->user()->role;
         $loggedInUser = auth()->user();
         if ($role == 2) {
-            $query->where('product_notes.assigned_to', auth()->id());
+            /*$query->where('product_notes.assigned_to', auth()->id());*/
+            $query->where(function ($q) {
+                $q->where('product_notes.assigned_to', auth()->id())
+                  ->orWhere('product_notes.created_by', auth()->id());
+            });
         } elseif ($role == 3 && $this->user_filter) { 
             $query->where('product_notes.assigned_to', $this->user_filter);
         } elseif ($role == 3) { 
             $userIds = User::where('role', 2)->pluck('id')->toArray();
-            $query->where(function ($q) use ($loggedInUser, $userIds) {
+            /*$query->where(function ($q) use ($loggedInUser, $userIds) {
                     $q->where('product_notes.assigned_to', $loggedInUser->id)
                       ->orWhereIn('product_notes.assigned_to', $userIds); 
-                });
+                });*/
+            $query->where(function ($q) use ($loggedInUser, $userIds) {
+                $q->whereIn('product_notes.assigned_to', $userIds)
+                  ->orWhere('product_notes.assigned_to', $loggedInUser->id)
+                  ->orWhere('product_notes.created_by', auth()->id());
+            });
         } elseif (!empty($this->user_filter)) {
             $query->where('product_notes.assigned_to', $this->user_filter);
         }

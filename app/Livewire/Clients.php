@@ -151,7 +151,7 @@ class Clients extends Component
 	    'business_nature' => 'nullable|string|max:255',
 	    'business_add1' => 'nullable|string|max:255',
 	    'business_add2' => 'nullable|string|max:255',
-	    'date_estd' => 'nullable|date',
+	    'date_estd' => 'nullable|date_format:d/m/Y',
 	    'business_role' => 'nullable|string|max:255',
 	    'shareholding_pc' => 'nullable|numeric|min:0|max:100',
 	    'net_profit_3yrs_avg' => 'nullable|numeric|min:0',
@@ -216,7 +216,7 @@ class Clients extends Component
 	    'sec_business_nature' => 'nullable|string|max:255',
 	    'sec_business_add1' => 'nullable|string|max:255',
 	    'sec_business_add2' => 'nullable|string|max:255',
-	    'sec_date_estd' => 'nullable|date',
+	    'sec_date_estd' => 'nullable|date_format:d/m/Y',
 	    'sec_business_role' => 'nullable|string|max:255',
 	    'sec_shareholding_pc' => 'nullable|numeric|min:0',
 	    'sec_net_profit_3yrs_avg' => 'nullable|numeric|min:0',
@@ -691,6 +691,20 @@ class Clients extends Component
 	        // IMPORTANT: send NULL, not ''
 	        $fields['sec_date_of_birth'] = null;
 	    }
+
+	    foreach (['date_estd', 'sec_date_estd'] as $field) {
+		    if (!empty($this->$field)) {
+		        try {
+		            $fields[$field] = Carbon::createFromFormat('d/m/Y', $this->$field)
+		                ->format('Y-m-d');
+		        } catch (\Exception $e) {
+		            \Log::error("Invalid date format for {$field}: {$this->$field}");
+		            $fields[$field] = null;
+		        }
+		    } else {
+		        $fields[$field] = null;
+		    }
+		}
 
 	    // -------- Existing nullable dates --------
 	    $nullableDates = ['date_estd', 'sec_date_estd'];

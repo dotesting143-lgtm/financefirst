@@ -22,15 +22,31 @@ use App\Livewire\PaymentTrackerReport;
 use App\Http\Controllers\PdfLetterController;
 use App\Http\Controllers\PdfNotesController;
 use App\Http\Controllers\PdfThankyouController;
+use App\Http\Controllers\CustomPasswordResetController;
 
-//Route::redirect('/', '/login');
+Route::middleware('guest')->group(function () {
+    
+    // 1. The GET route: Shows the form when they click the email link
+    // We name this 'password.reset' (standard Laravel naming)
+    Route::get('/reset-password', [CustomPasswordResetController::class, 'create'])
+        ->name('password.reset');
+
+    // 2. The POST route: Handles the form submission
+    // We name this 'password.update' (THIS fixes your error)
+    Route::post('/reset-password', [CustomPasswordResetController::class, 'store'])
+        ->name('password.update');
+        
+    // 3. Optional: Forgot Password routes if you haven't added them yet
+    Route::get('/forgot-password', [CustomPasswordResetController::class, 'createForgotPassword'])->name('password.request');
+    Route::post('/forgot-password', [CustomPasswordResetController::class, 'storeForgotPassword'])->name('password.email');
+});
 
 Route::middleware([
     'auth:sanctum',
     config('jetstream.auth_session'),
     'verified',
 ])->group(function () {
-    Route::post('/reset-password', [ResetPasswordController::class, 'reset'])->name('password.reset');
+    //Route::post('/reset-password', [ResetPasswordController::class, 'reset'])->name('password.reset');
     Route::get('clients', Clients::class)->middleware('auth')->name('clients');
     Route::get('users', Users::class)->name('users');
     Route::get('suitabilityletter', SuitabilityLetter::class)->name('suitabilityletter');

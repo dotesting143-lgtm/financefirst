@@ -54,9 +54,9 @@ class CommercialPolicyForm extends Component
         'internal_status' => 'nullable|string',
         'uw_status' => 'nullable|string',
         'type' => 'required|max:255',
-        'start_date' => 'required|date',
-        'renewal_date' => 'date|nullable',
-        'end_date' => 'date|nullable',
+        'start_date'    => 'required|date_format:d-m-Y',
+        'renewal_date' => 'nullable|date_format:d-m-Y',
+        'end_date'     => 'nullable|date_format:d-m-Y',
         'term' => 'required|string|max:255',
         'busdesc' => 'nullable|string|max:255',
         'curinsurer' => 'nullable|string|max:255',
@@ -88,23 +88,23 @@ class CommercialPolicyForm extends Component
         'damturnover' => 'nullable|string|max:255',
         'damcomputer' => 'nullable|string|max:255',
         'dammoney' => 'nullable|string|max:255',
-        'claimdate1' => 'date|nullable',
+        'claimdate1' => 'nullable|date_format:d-m-Y',
         'claimdetails1' => 'nullable|string|max:255',
         'claimamt1' => 'nullable|string|max:255',
         'claimreserv1' => 'nullable|string|max:255',
-        'claimdate2' => 'date|nullable',
+        'claimdate2' => 'nullable|date_format:d-m-Y',
         'claimdetails2' => 'nullable|string|max:255',
         'claimamt2' => 'nullable|string|max:255',
         'claimreserv2' => 'nullable|string|max:255',
-        'claimdate3' => 'date|nullable',
+        'claimdate3' => 'nullable|date_format:d-m-Y',
         'claimdetails3' => 'nullable|string|max:255',
         'claimamt3' => 'nullable|string|max:255',
         'claimreserv3' => 'nullable|string|max:255',
-        'claimdate4' => 'date|nullable',
+        'claimdate4' => 'nullable|date_format:d-m-Y',
         'claimdetails4' => 'nullable|string|max:255',
         'claimamt4' => 'nullable|string|max:255',
         'claimreserv4' => 'nullable|string|max:255',
-        'claimdate5' => 'date|nullable',
+        'claimdate5' => 'nullable|date_format:d-m-Y',
         'claimdetails5' => 'nullable|string|max:255',
         'claimamt5' => 'nullable|string|max:255',
         'claimreserv5' => 'nullable|string|max:255',
@@ -137,7 +137,7 @@ class CommercialPolicyForm extends Component
         $commercialpolicy = CommercialPolicyModel::findOrFail($this->policy_id);
         foreach ($this->rules as $field => $rule) {
         	if (isset($commercialpolicy->$field)) {
-                if (in_array($field, ['start_date', 'renewal_date', 'end_date', 'fdate']) && $commercialpolicy->$field) {
+                if (in_array($field, ['renewal_date', 'end_date', 'fdate']) && $commercialpolicy->$field) {
                     $this->$field = Carbon::parse($commercialpolicy->$field)->format('d-m-Y');
                 } else {
                     $this->$field = $commercialpolicy->$field;
@@ -145,7 +145,9 @@ class CommercialPolicyForm extends Component
 	        }
         }
 
-        $clientPolicy = ClientPolicies::find($this->policy_id);
+        $clientPolicy = ClientPolicies::where('policy_id', $this->policy_id)
+        ->where('policy_type', $this->policy_type)
+        ->first();
 
         if ($clientPolicy) {
             $this->internal_status = $clientPolicy->internal_status;
@@ -154,21 +156,18 @@ class CommercialPolicyForm extends Component
             $this->propinsurer = $clientPolicy->propinsurer;
             $this->propinsurer_num = $clientPolicy->propinsurer_num;
             $this->left_our_agency  = (bool) $clientPolicy->left_our_agency;
+            $this->start_date = Carbon::parse($clientPolicy->creation_date)->format('d-m-Y');
         }
     }
 
     public function savePolicy()
     {
         $this->validate($this->rules);
-        $this->start_date = $this->formatDate($this->start_date);
-        $this->renewal_date = $this->formatDate($this->renewal_date);
-        $this->end_date = $this->formatDate($this->end_date);
-        $this->claimdate1 = $this->formatDate($this->claimdate1);
-        $this->claimdate2 = $this->formatDate($this->claimdate2);
-        $this->claimdate3 = $this->formatDate($this->claimdate3);
-        $this->claimdate4 = $this->formatDate($this->claimdate4);
-        $this->claimdate5 = $this->formatDate($this->claimdate5);
+        
         $fields = $this->getFields();
+
+        $creationDate = Carbon::createFromFormat('d-m-Y', $this->start_date)->format('Y-m-d');
+
         $activeStatus = in_array($this->internal_status, ['Cancelled', 'Closed']) ? 'Inactive' : 'Active';
         
         if ($this->policy_id) {
@@ -186,6 +185,7 @@ class CommercialPolicyForm extends Component
 		            'propinsurer'      => $this->propinsurer,
 		            'propinsurer_num'  => $this->propinsurer_num,
                     'left_our_agency'  => $this->left_our_agency ? 1 : 0,
+                    'creation_date'    => $creationDate,
 		        ]);
 	        } else {
 	        	$clientPolicy = $this->createClientPolicy($activeStatus, $this->policy_id);
@@ -271,8 +271,36 @@ class CommercialPolicyForm extends Component
 	    return $clientPolicy;
     }
 
-    private function getFields() {
-        return collect($this->rules)->keys()->mapWithKeys(fn($field) => [$field => $this->$field])->toArray();
+    private function getFields()
+    {
+        $dateFields = [
+            'start_date',
+            'renewal_date',
+            'end_date',
+            'claimdate1',
+            'claimdate2',
+            'claimdate3',
+            'claimdate4',
+            'claimdate5',
+        ];
+
+        return collect($this->rules)->keys()->mapWithKeys(function ($field) use ($dateFields) {
+            $value = $this->$field;
+
+            // Empty string → NULL (important for DB)
+            if ($value === '') {
+                return [$field => null];
+            }
+
+            // Convert UI date → DB date
+            if (in_array($field, $dateFields) && $value) {
+                return [
+                    $field => Carbon::createFromFormat('d-m-Y', $value)->format('Y-m-d')
+                ];
+            }
+
+            return [$field => $value];
+        })->toArray();
     }
 
     private function resetInputFields(){

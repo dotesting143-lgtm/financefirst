@@ -63,11 +63,28 @@ class ImportDocumentStorages extends Command
             $filename     = $data['filename'] ?? null;
             $clientIdRaw  = $data['client_id'] ?? null;
             $createdAtRaw = $data['created_at'] ?? null;
-            $uploadedBy   = $data['uploaded_by'] ?? null;
 
-            // ✅ client_id: 0 -> null
+            $uploadedByRaw = $data['uploaded_by'] ?? null;
+
+            $uploadedBy = is_numeric($uploadedByRaw)
+                ? (int) $uploadedByRaw
+                : null;
+
+            // ✅ if user does not exist, set to null
+            if ($uploadedBy && ! DB::table('users')->where('id', $uploadedBy)->exists()) {
+                $uploadedBy = null;
+            }
+
+            // ✅ client_id handling
             $clientId = is_numeric($clientIdRaw) ? (int) $clientIdRaw : null;
+
+            // 0 or empty → null
             if (empty($clientId) || $clientId === 0) {
+                $clientId = null;
+            }
+
+            // ✅ if client does not exist, set to null
+            if ($clientId && ! DB::table('clients')->where('id', $clientId)->exists()) {
                 $clientId = null;
             }
 

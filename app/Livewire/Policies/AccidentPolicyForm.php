@@ -26,9 +26,10 @@ class AccidentPolicyForm extends Component
         'internal_status' => 'nullable|string',
         'uw_status' => 'nullable|string',
         'type' => 'required|string|max:255',
-        'start_date' => 'required|date',
-        'renewal_date' => 'nullable|date',
-        'end_date' => 'nullable|date',
+        'start_date' => 'required|date_format:d-m-Y',
+        'renewal_date' => 'nullable|date_format:d-m-Y',
+        'end_date' => 'nullable|date_format:d-m-Y',
+        'fdate' => 'nullable|date_format:d-m-Y',
         'coveramt' => 'nullable|string|max:255',
         'propinsurer' => 'required|string|max:255',
         'propinsurer_num' => 'nullable|string|max:255',
@@ -40,7 +41,6 @@ class AccidentPolicyForm extends Component
         'monthprem' => 'required|string|max:255',
         'payfreq' => 'nullable|string|max:255',
         'upfrontpay1' => 'nullable|string|max:255',
-        'fdate' => 'nullable|date',
         'numpay' => 'nullable|string|max:255',
         'needs_obj_text' => 'required|string',
         'per_circ_text' => 'required|string',
@@ -68,7 +68,7 @@ class AccidentPolicyForm extends Component
         foreach ($this->rules as $field => $rule) {
             if (isset($policy->$field)) {
 
-                if (in_array($field, ['start_date', 'renewal_date', 'end_date', 'fdate']) && $policy->$field) {
+                if (in_array($field, ['renewal_date', 'end_date', 'fdate']) && $policy->$field) {
                     $this->$field = Carbon::parse($policy->$field)->format('d-m-Y');
                 } else {
                     $this->$field = $policy->$field;
@@ -77,7 +77,10 @@ class AccidentPolicyForm extends Component
             }
         }
 
-        $clientPolicy = ClientPolicies::find($this->policy_id);
+        $clientPolicy = ClientPolicies::where('policy_id', $this->policy_id)
+        ->where('policy_type', $this->policy_type)
+        ->first();
+
         if ($clientPolicy) {
             $this->internal_status = $clientPolicy->internal_status;
             $this->uw_status = $clientPolicy->uw_status;
@@ -85,22 +88,19 @@ class AccidentPolicyForm extends Component
             $this->propinsurer = $clientPolicy->propinsurer;
             $this->propinsurer_num = $clientPolicy->propinsurer_num;
             $this->left_our_agency = (bool) $clientPolicy->left_our_agency;
+            $this->start_date = Carbon::parse($clientPolicy->creation_date)->format('d-m-Y');
         }
     }
 
     public function savePolicy()
     {
         $this->validate($this->rules);
-
-        $this->start_date = $this->formatDate($this->start_date);
-        $this->renewal_date = $this->formatDate($this->renewal_date);
-        $this->end_date = $this->formatDate($this->end_date);
-        if($this->fdate) {
-            $this->fdate = $this->formatDate($this->fdate);
-        }
-        
+    
 
         $fields = $this->getFields();
+
+        $creationDate = Carbon::createFromFormat('d-m-Y', $this->start_date)->format('Y-m-d');
+
         $activeStatus = in_array($this->internal_status, ['Cancelled', 'Closed']) ? 'Inactive' : 'Active';
 
         if ($this->policy_id) {
@@ -118,6 +118,7 @@ class AccidentPolicyForm extends Component
                     'propinsurer'      => $this->propinsurer,
                     'propinsurer_num'  => $this->propinsurer_num,
                     'left_our_agency'  => $this->left_our_agency ? 1 : 0,
+                    'creation_date'    => $creationDate,
                 ]);
             } else {
                 $clientPolicy = $this->createClientPolicy($activeStatus, $this->policy_id);
@@ -216,9 +217,14 @@ class AccidentPolicyForm extends Component
         return collect($this->rules)->keys()->mapWithKeys(function ($field) {
             $value = $this->$field;
 
-            // Convert empty strings to null (CRITICAL for dates)
             if ($value === '') {
-                $value = null;
+                return [$field => null];
+            }
+
+            if (in_array($field, ['start_date', 'renewal_date', 'end_date', 'fdate']) && $value) {
+                return [
+                    $field => Carbon::createFromFormat('d-m-Y', $value)->format('Y-m-d')
+                ];
             }
 
             return [$field => $value];

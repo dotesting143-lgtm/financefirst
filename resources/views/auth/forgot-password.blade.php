@@ -20,6 +20,11 @@
             @csrf
 
             <div class="block">
+                <x-label for="username" class="text-pastel-blue text-sm lg:text-base" value="{{ __('Username') }}" />
+                <input id="username" class="block mt-2 w-full bg-space-cadet border-dark-cornflower-blue focus:border-dark-cornflower-blue focus:ring-dark-cornflower-blue text-white shadow-none rounded-lg py-2.5 lg:py-3 xl:py-4 px-2 xl:px-3 text-sm lg:text-base" type="text" name="username" required autofocus />
+            </div>
+
+            <div class="block mt-4">
                 <x-label for="email" class="text-pastel-blue text-sm lg:text-base" value="{{ __('Email') }}" />
                 <input id="email" class="block mt-2 w-full bg-space-cadet border-dark-cornflower-blue focus:border-dark-cornflower-blue focus:ring-dark-cornflower-blue text-white shadow-none rounded-lg py-2.5 lg:py-3 xl:py-4 px-2 xl:px-3 text-sm lg:text-base" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" />
             </div>

@@ -35,9 +35,9 @@ class HousePolicyForm extends Component
         'internal_status' => 'nullable|string',
         'uw_status' => 'nullable|string',
         'type' => 'required|string|max:255',
-        'start_date' => 'required|date',
-        'renewal_date' => 'date|nullable',
-        'end_date' => 'date|nullable',
+        'start_date'    => 'required|date_format:d-m-Y',
+        'renewal_date' => 'nullable|date_format:d-m-Y',
+        'end_date'     => 'nullable|date_format:d-m-Y',
         'term' => 'required|string|max:255',
         'buildtype' => 'nullable|string|max:255',
         'buildcost' => 'nullable|string|max:255',
@@ -85,7 +85,7 @@ class HousePolicyForm extends Component
         $housepolicy = HousePolicyModel::findOrFail($this->policy_id);
         foreach ($this->rules as $field => $rule) {
         	if(isset($housepolicy->$field)) {
-                if (in_array($field, ['start_date', 'renewal_date', 'end_date', 'fdate']) && $housepolicy->$field) {
+                if (in_array($field, ['renewal_date', 'end_date', 'fdate']) && $housepolicy->$field) {
                     $this->$field = Carbon::parse($housepolicy->$field)->format('d-m-Y');
                 } else {
                     $this->$field = $housepolicy->$field;
@@ -93,7 +93,9 @@ class HousePolicyForm extends Component
 	        }
         }
 
-        $clientPolicy = ClientPolicies::find($this->policy_id);
+        $clientPolicy = ClientPolicies::where('policy_id', $this->policy_id)
+        ->where('policy_type', $this->policy_type)
+        ->first();
 
         if ($clientPolicy) {
             $this->internal_status = $clientPolicy->internal_status;
@@ -102,18 +104,20 @@ class HousePolicyForm extends Component
             $this->propinsurer = $clientPolicy->propinsurer;
             $this->propinsurer_num = $clientPolicy->propinsurer_num;
             $this->left_our_agency  = (bool) $clientPolicy->left_our_agency;
+            $this->start_date = Carbon::parse($clientPolicy->creation_date)->format('d-m-Y');
         }
     }
 
     public function savePolicy()
     {
         $this->validate($this->rules);
-        $this->start_date = $this->formatDate($this->start_date);
-        $this->renewal_date = $this->formatDate($this->renewal_date);
-        $this->end_date = $this->formatDate($this->end_date);
+
         $fields = $this->getFields();
         
+        $creationDate = Carbon::createFromFormat('d-m-Y', $this->start_date)->format('Y-m-d');
+
         $activeStatus = in_array($this->internal_status, ['Cancelled', 'Closed']) ? 'Inactive' : 'Active';
+        
         if ($this->policy_id) {
 	        // UPDATE scenario
 	        $clientPolicy = ClientPolicies::where('policy_id', $this->policy_id)
@@ -129,6 +133,7 @@ class HousePolicyForm extends Component
 		            'propinsurer'      => $this->propinsurer,
 		            'propinsurer_num'  => $this->propinsurer_num,
                     'left_our_agency'  => $this->left_our_agency ? 1 : 0,
+                    'creation_date'    => $creationDate,
 		        ]);
 	        } else {
 	        	$clientPolicy = $this->createClientPolicy($activeStatus, $this->policy_id);
@@ -213,8 +218,31 @@ class HousePolicyForm extends Component
 	    return $clientPolicy;
     }
 
-    private function getFields() {
-        return collect($this->rules)->keys()->mapWithKeys(fn($field) => [$field => $this->$field])->toArray();
+    private function getFields()
+    {
+        $dateFields = [
+            'start_date',
+            'renewal_date',
+            'end_date',
+        ];
+
+        return collect($this->rules)->keys()->mapWithKeys(function ($field) use ($dateFields) {
+            $value = $this->$field;
+
+            // Empty string → NULL
+            if ($value === '') {
+                return [$field => null];
+            }
+
+            // Convert UI date → DB date
+            if (in_array($field, $dateFields) && $value) {
+                return [
+                    $field => Carbon::createFromFormat('d-m-Y', $value)->format('Y-m-d')
+                ];
+            }
+
+            return [$field => $value];
+        })->toArray();
     }
 
     private function resetInputFields(){
